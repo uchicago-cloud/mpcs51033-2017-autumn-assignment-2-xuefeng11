@@ -15,7 +15,8 @@ lsof -P | grep '8080' | awk '{print $2}' | xargs kill -9
 
 API
 ================================================================================
-Get a json list of most recent submitted pictures
+
+### Get a json list of most recent submitted pictures ###
 ```
 http://--.appspot.com/user/<USERNAME>/json/
 ```
@@ -24,7 +25,7 @@ Example
 curl -X GET https://mpcs51033-2017-autumn-photos.appspot.com/user/default/json/
 ```
 
-See a list of the most recent on a web page (useful for debugging)
+### See a list of the most recent on a web page (useful for debugging) ####
 ```
 http://--.appspot.com/user/<USERNAME>/web/
 ```
@@ -33,7 +34,7 @@ Example
  curl -X GET https://mpcs51033-2017-autumn-photos.appspot.com/user/andrew/json/
 ```
 
-Endpoint for posting images to server. There is an optional "caption" parameter that you can use.
+### Endpoint for posting images to server. There is an optional "caption" parameter that you can use. ###
 ```
 http://--.appspot.com/user/<USERNAME>/post/
 ```
