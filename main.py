@@ -4,12 +4,59 @@ import urllib
 import webapp2
 import json
 import logging
+from uuid import uuid4
 
 from google.appengine.api import memcache
 from google.appengine.ext import ndb
 from google.appengine.api import images
 
 from models import *
+
+#######################################################################
+class RegisterPostHandler(webapp2.RequestHandler):
+    def post(self):
+
+        if self.request.get('username'):
+            username_ = self.request.get('username')
+
+        user_result = User.exists(username_)
+
+        if user_result:
+            self.response.out.write("username already existed")
+            return
+
+        else:
+            name_ = self.request.get('name')
+            email_ = self.request.get('email')
+            password_ = self.request.get('password')
+            user_ = User(parent=ndb.Key("User",username_),
+                         name=name_,
+                         email=email_,
+                         unique_id=str(uuid4()),
+                         username=username_,
+                         password=password_,
+                         id_token=str(uuid4())
+            )
+            user_.put()
+            logging.info("new user added")
+            self.redirect('/')
+
+
+class RegisterHandler(webapp2.RequestHandler):
+        def get(self):
+            self.response.out.write('<html><body>')
+            self.response.out.write("""
+            <form action="/postRegister/" enctype="multipart/form-data" method="post">
+            <div>name <input value="xuefeng" name="name"></div>
+            <div>email <input value="xuefeng@uchicago.edu" name="email"></div>
+            <div>username <input value="xuefeng111" name="username"></div>
+            <div>password <input value="123456" name="password"></div>
+            <div><input type="submit" value="Post"></div>
+            </form>
+            <hr>
+            </body>
+            </html>""")
+
 
 ################################################################################
 """The home page of the app"""
@@ -28,8 +75,7 @@ class HomeHandler(webapp2.RequestHandler):
         user = self.request.get('user')
         ancestor_key = ndb.Key("User", user or "*notitle*")
         # Query the datastore
-        photos = Photo.query_user(ancestor_key).fetch(100)
-
+        # photos = Photo.query_user(ancestor_key).fetch(100)
 
         self.response.out.write("""
         <form action="/post/default/" enctype="multipart/form-data" method="post">
@@ -49,51 +95,58 @@ class HomeHandler(webapp2.RequestHandler):
 class UserHandler(webapp2.RequestHandler):
 
     """Print json or html version of the users photos"""
-    def get(self,user,type):
+    def get(self,username,type):
         #ancestor_key = ndb.Key("User", user)
         #photos = Photo.query_user(ancestor_key).fetch(100)
-        photos = self.get_data(user)
+        photos = self.get_data(username)
+        photos_retrieved = []
+
+        for key in photos:
+            photos_retrieved.append(ndb.Key(urlsafe=key).get())
+
+
         if type == "json":
-            output = self.json_results(photos)
+            output = self.json_results(photos_retrieved,username)
         else:
-            output = self.web_results(photos)
+            output = self.web_results(photos_retrieved,username)
         self.response.out.write(output)
 
-    def json_results(self,photos):
+    def json_results(self,photos,username):
         """Return formatted json from the datastore query"""
         json_array = []
         for photo in photos:
             dict = {}
             dict['image_url'] = "image/%s/" % photo.key.urlsafe()
             dict['caption'] = photo.caption
-            dict['user'] = photo.user
+            dict['user'] = username
             dict['date'] = str(photo.date)
             json_array.append(dict)
         return json.dumps({'results' : json_array})
 
-    def web_results(self,photos):
+    def web_results(self,photos,username):
         """Return html formatted json from the datastore query"""
         html = ""
         for photo in photos:
             html += '<div><hr><div><img src="/image/%s/" width="200" border="1"/></div>' % photo.key.urlsafe()
-            html += '<div><blockquote>Caption: %s<br>User: %s<br>Date:%s</blockquote></div></div>' % (cgi.escape(photo.caption),photo.user,str(photo.date))
+            html += '<div><blockquote>Caption: %s<br>User: %s<br>Date:%s</blockquote></div></div>' % (cgi.escape(photo.caption),username,str(photo.date))
         return html
 
     @staticmethod
-    def get_data(user):
+    def get_data(username):
         """Get data from the datastore only if we don't have it cached"""
-        key = user + "_photos"
+        key = username + "_photos"
         data = memcache.get(key)
         if data is not None:
             logging.info("Found in cache")
             return data
         else:
             logging.info("Cache miss")
-            ancestor_key = ndb.Key("User", user)
-            data = Photo.query_user(ancestor_key).fetch(100)
-            if not memcache.add(key, data, 3600):
+            ancestor_key = ndb.Key("User", username)
+            data = User.query_user(ancestor_key)
+            photo_=data.photos
+            if not memcache.add(key, photo_, 3600):
                 logging.info("Memcache failed")
-        return data
+        return photo_
 
 ################################################################################
 """Handle requests for an image ebased on its key"""
@@ -121,27 +174,20 @@ class PostHandler(webapp2.RequestHandler):
 
         # Be nice to our quotas
         thumbnail = images.resize(self.request.get('image'), 30,30)
+        user_result = User.exists(user)
 
-        # Create and add a new Photo entity
-        #
-        # We set a parent key on the 'Photos' to ensure that they are all
-        # in the same entity group. Queries across the single entity group
-        # will be consistent. However, the write rate should be limited to
-        # ~1/second.
-        photo = Photo(parent=ndb.Key("User", user),
-                user=user,
-                caption=self.request.get('caption'),
-                image=thumbnail)
-        photo.put()
-
-        # Clear the cache (the cached version is going to be outdated)
-        key = user + "_photos"
-        memcache.delete(key)
-
-        # Redirect to print out JSON
-        self.redirect('/user/%s/json/' % user)
-
-
+        if user_result:
+            photo_ = Photo(caption=self.request.get('caption'),
+                           image=thumbnail)
+            photo_.put()
+            user_result_photos=user_result.photos
+            user_result_photos.append(photo_.key.urlsafe())
+            user_result.photos=user_result_photos
+            user_result.put()
+            logging.info("new photo added")
+        else:
+            logging.info("new user created")
+            self.response.out.write("new user added")
 
 class LoggingHandler(webapp2.RequestHandler):
     """Demonstrate the different levels of logging"""
@@ -161,6 +207,20 @@ class LoggingHandler(webapp2.RequestHandler):
         self.response.out.write('Logging example.')
 
 
+class AuthenticationHandler(webapp2.RedirectHandler):
+    def get(self):
+        username_ = self.request.get('username')
+        password_ = self.request.get('password')
+        result = User.authenticate(username_,password_)
+
+        if result:
+            self.response.out.write(result.id_token)
+        else:
+            self.response.out.write("username and password is not correct")
+
+
+
+
 ################################################################################
 
 app = webapp2.WSGIApplication([
@@ -168,6 +228,9 @@ app = webapp2.WSGIApplication([
     webapp2.Route('/logging/', handler=LoggingHandler),
     webapp2.Route('/image/<key>/', handler=ImageHandler),
     webapp2.Route('/post/<user>/', handler=PostHandler),
-    webapp2.Route('/user/<user>/<type>/',handler=UserHandler)
+    webapp2.Route('/user/<username>/<type>/',handler=UserHandler),
+    webapp2.Route('/register/', handler=RegisterHandler),
+    webapp2.Route('/postRegister/', handler=RegisterPostHandler),
+    webapp2.Route('/authenticate/',handler=AuthenticationHandler)
     ],
     debug=True)
