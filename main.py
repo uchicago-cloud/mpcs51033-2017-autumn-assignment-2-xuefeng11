@@ -211,7 +211,7 @@ class LoggingHandler(webapp2.RequestHandler):
         self.response.out.write('Logging example.')
 
 
-class AuthenticationHandler(webapp2.RedirectHandler):
+class AuthenticationHandler(webapp2.RequestHandler):
     def get(self):
         username_ = self.request.get('username')
         password_ = self.request.get('password')

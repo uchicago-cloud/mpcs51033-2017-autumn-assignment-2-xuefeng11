@@ -1,4 +1,8 @@
 
+-authentication
+curl -X GET "http://127.0.0.1:8080/authenticate/?username=xuefeng111&password=123456"
+
+
 Start/Stop/Kill the Development Server
 ================================================================================
 Start the default server.
