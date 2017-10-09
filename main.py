@@ -82,7 +82,7 @@ class HomeHandler(webapp2.RequestHandler):
         <div><textarea name="caption" rows="3" cols="60"></textarea></div>
         <div><label>Photo:</label></div>
         <div><input type="file" name="image"/></div>
-        <div>User <input value="default" name="user"></div>
+        <div>User <input value="default" name="username"></div>
         <div><input type="submit" value="Post"></div>
         </form>
         <hr>
@@ -164,17 +164,17 @@ class ImageHandler(webapp2.RequestHandler):
 
 ################################################################################
 class PostHandler(webapp2.RequestHandler):
-    def post(self,user):
+    def post(self,username):
 
         # If we are submitting from the web form, we will be passing
         # the user from the textbox.  If the post is coming from the
         # API then the username will be embedded in the URL
-        if self.request.get('user'):
-            user = self.request.get('user')
+        if self.request.get('username'):
+            username = self.request.get('username')
 
         # Be nice to our quotas
         thumbnail = images.resize(self.request.get('image'), 30,30)
-        user_result = User.exists(user)
+        user_result = User.exists(username)
 
         if user_result:
             photo_ = Photo(caption=self.request.get('caption'),
@@ -184,10 +184,14 @@ class PostHandler(webapp2.RequestHandler):
             user_result_photos.append(photo_.key.urlsafe())
             user_result.photos=user_result_photos
             user_result.put()
-            logging.info("new photo added")
+            logging.info("new photo added to %s" % username)
+            self.redirect('/user/%s/json/' % username)
         else:
-            logging.info("new user created")
-            self.response.out.write("new user added")
+            self.response.out.write("no user exist")
+
+        #clear the cache
+        key = username + "_photos"
+        memcache.delete(key)
 
 class LoggingHandler(webapp2.RequestHandler):
     """Demonstrate the different levels of logging"""
@@ -227,7 +231,7 @@ app = webapp2.WSGIApplication([
     ('/', HomeHandler),
     webapp2.Route('/logging/', handler=LoggingHandler),
     webapp2.Route('/image/<key>/', handler=ImageHandler),
-    webapp2.Route('/post/<user>/', handler=PostHandler),
+    webapp2.Route('/post/<username>/', handler=PostHandler),
     webapp2.Route('/user/<username>/<type>/',handler=UserHandler),
     webapp2.Route('/register/', handler=RegisterHandler),
     webapp2.Route('/postRegister/', handler=RegisterPostHandler),
