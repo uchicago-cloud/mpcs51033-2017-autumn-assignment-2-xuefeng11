@@ -29,17 +29,18 @@ class RegisterPostHandler(webapp2.RequestHandler):
             name_ = self.request.get('name')
             email_ = self.request.get('email')
             password_ = self.request.get('password')
+            id_token_ = str(uuid4())
             user_ = User(parent=ndb.Key("User",username_),
                          name=name_,
                          email=email_,
                          unique_id=str(uuid4()),
                          username=username_,
                          password=password_,
-                         id_token=str(uuid4())
+                         id_token=id_token_
             )
             user_.put()
             logging.info("new user added")
-            self.redirect('/')
+            self.redirect('/?username=%s&id_token=%s'%(username_,id_token_))
 
 
 class RegisterHandler(webapp2.RequestHandler):
@@ -129,28 +130,28 @@ class UserHandler(webapp2.RequestHandler):
 
 
         if type == "json":
-            output = self.json_results(photos_retrieved,username)
+            output = self.json_results(photos_retrieved,username,id_token)
         else:
-            output = self.web_results(photos_retrieved,username)
+            output = self.web_results(photos_retrieved,username,id_token)
         self.response.out.write(output)
 
-    def json_results(self,photos,username):
+    def json_results(self,photos,username,id_token):
         """Return formatted json from the datastore query"""
         json_array = []
         for photo in photos:
             dict = {}
-            dict['image_url'] = "image/%s/" % photo.key.urlsafe()
+            dict['image_url'] = "image/%s/?id_token=%s" % (photo.key.urlsafe(),id_token)
             dict['caption'] = photo.caption
             dict['user'] = username
             dict['date'] = str(photo.date)
             json_array.append(dict)
         return json.dumps({'results' : json_array})
 
-    def web_results(self,photos,username):
+    def web_results(self,photos,username,id_token):
         """Return html formatted json from the datastore query"""
         html = ""
         for photo in photos:
-            html += '<div><hr><div><img src="/image/%s/" width="200" border="1"/></div>' % photo.key.urlsafe()
+            html += '<div><hr><div><img src="/image/%s/?id_token=%s" width="200" border="1"/></div>' % (photo.key.urlsafe(),id_token)
             html += '<div><blockquote>Caption: %s<br>User: %s<br>Date:%s</blockquote></div></div>' % (cgi.escape(photo.caption),username,str(photo.date))
         return html
 
