@@ -57,3 +57,19 @@ class User(ndb.Model):
             return result[0]
         else:
             return None
+
+    @classmethod
+    def id_tokenUserValidate(cls,username,id_token):
+        result=ndb.gql('SELECT * FROM User WHERE username = :1 and id_token = :2',username,id_token).fetch()
+        if result:
+            return result[0]
+        else:
+            return None
+
+    @classmethod
+    def getUserbyid_token(cls,id_token):
+        result=ndb.gql('SELECT * FROM User WHERE id_token = :1',id_token).fetch()
+        if result:
+            return result[0]
+        else:
+            return None

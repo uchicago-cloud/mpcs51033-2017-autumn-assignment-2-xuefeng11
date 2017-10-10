@@ -64,6 +64,18 @@ class HomeHandler(webapp2.RequestHandler):
 
     """Show the webform when the user is on the home page"""
     def get(self):
+
+        id_token = self.request.get('id_token')
+        username = self.request.get('username')
+        if id_token == '':
+            self.response.out.write("id_token missing")
+            return
+
+        result=User.id_tokenUserValidate(username,id_token)
+        if result == None:
+            self.response.out.write("username and id_token validation failed")
+            return
+
         self.response.out.write('<html><body>')
 
         # Print out some stats on caching
@@ -78,16 +90,17 @@ class HomeHandler(webapp2.RequestHandler):
         # photos = Photo.query_user(ancestor_key).fetch(100)
 
         self.response.out.write("""
-        <form action="/post/default/" enctype="multipart/form-data" method="post">
+        <form action="/post/%s/?id_token=%s" enctype="multipart/form-data" method="post">
         <div><textarea name="caption" rows="3" cols="60"></textarea></div>
         <div><label>Photo:</label></div>
         <div><input type="file" name="image"/></div>
-        <div>User <input value="default" name="username"></div>
+        <div>User: <input type="text" name="username" value="%s" disabled><div>
+        <div>id_token:  %s </div>
         <div><input type="submit" value="Post"></div>
         </form>
         <hr>
         </body>
-        </html>""")
+        </html>""" % (username,id_token,username,id_token))
 
 
 ################################################################################
@@ -96,10 +109,20 @@ class UserHandler(webapp2.RequestHandler):
 
     """Print json or html version of the users photos"""
     def get(self,username,type):
-        #ancestor_key = ndb.Key("User", user)
-        #photos = Photo.query_user(ancestor_key).fetch(100)
+
+        id_token = self.request.get('id_token')
+        if id_token == '':
+            self.response.out.write("id_token missing")
+            return
+
+        result=User.id_tokenUserValidate(username,id_token)
+        if result == None:
+            self.response.out.write("username and id_token validation failed")
+            return
+
         photos = self.get_data(username)
         photos_retrieved = []
+
 
         for key in photos:
             photos_retrieved.append(ndb.Key(urlsafe=key).get())
@@ -153,6 +176,16 @@ class UserHandler(webapp2.RequestHandler):
 class ImageHandler(webapp2.RequestHandler):
 
     def get(self,key):
+        id_token = self.request.get('id_token')
+        if id_token == '':
+            self.response.out.write("id_token missing")
+            return
+
+        result = User.getUserbyid_token(id_token)
+        if result == None:
+            self.response.out.write("id_token validation failed")
+            return
+
         """Write a response of an image (or 'no image') based on a key"""
         photo = ndb.Key(urlsafe=key).get()
         if photo.image:
@@ -162,10 +195,48 @@ class ImageHandler(webapp2.RequestHandler):
             self.response.out.write('No image')
 
 
+class ImageDeleteHandler(webapp2.RequestHandler):
+
+        def get(self, key):
+                id_token = self.request.get('id_token')
+                if id_token == '':
+                    self.response.out.write("id_token missing")
+                    return
+
+                result = User.getUserbyid_token(id_token)
+                if result == None:
+                    self.response.out.write("id_token validation failed")
+                    return
+
+                photo_keys = result.photos
+
+                if key in photo_keys:
+                    key_photo = ndb.Key(urlsafe=key)
+                    key_photo.delete()
+                    photo_keys.remove(key)
+                    result.photos=photo_keys
+                    result.put()
+                    logging.info("photo deleted")
+                else:
+                    self.response.out.write("this photo is not in user's photos")
+
+                key = result.username+"_photos"
+                memcache.delete(key)
+
+
 ################################################################################
 class PostHandler(webapp2.RequestHandler):
     def post(self,username):
 
+        id_token = self.request.get('id_token')
+        if id_token == '':
+            self.response.out.write("id_token missing")
+            return
+
+        result=User.id_tokenUserValidate(username,id_token)
+        if result == None:
+            self.response.out.write("username and id_token validation failed")
+            return
         # If we are submitting from the web form, we will be passing
         # the user from the textbox.  If the post is coming from the
         # API then the username will be embedded in the URL
@@ -185,7 +256,7 @@ class PostHandler(webapp2.RequestHandler):
             user_result.photos=user_result_photos
             user_result.put()
             logging.info("new photo added to %s" % username)
-            self.redirect('/user/%s/json/' % username)
+            self.redirect('/user/%s/json/?id_token=%s' % (username,result.id_token))
         else:
             self.response.out.write("no user exist")
 
@@ -197,6 +268,17 @@ class LoggingHandler(webapp2.RequestHandler):
     """Demonstrate the different levels of logging"""
 
     def get(self):
+
+        id_token = self.request.get('id_token')
+        if id_token == '':
+            self.response.out.write("id_token missing")
+            return
+
+        result=User.getUserbyid_token(id_token)
+        if result == None:
+            self.response.out.write("id_token validation failed")
+            return
+
         logging.debug('This is a debug message')
         logging.info('This is an info message')
         logging.warning('This is a warning message')
@@ -219,6 +301,7 @@ class AuthenticationHandler(webapp2.RequestHandler):
 
         if result:
             self.response.out.write(result.id_token)
+            self.redirect('/?username=%s&id_token=%s' % (username_,result.id_token))
         else:
             self.response.out.write("username and password is not correct")
 
@@ -228,13 +311,22 @@ class AuthenticationHandler(webapp2.RequestHandler):
 ################################################################################
 
 app = webapp2.WSGIApplication([
+
+    # ?id_token= & username=
     ('/', HomeHandler),
+    #?id_token=
     webapp2.Route('/logging/', handler=LoggingHandler),
+    #?id_token=
     webapp2.Route('/image/<key>/', handler=ImageHandler),
+    # ?id_token=
+    webapp2.Route('/image/<key>/delete/', handler=ImageDeleteHandler),
+    #?id_token=
     webapp2.Route('/post/<username>/', handler=PostHandler),
+    #?id_token=
     webapp2.Route('/user/<username>/<type>/',handler=UserHandler),
     webapp2.Route('/register/', handler=RegisterHandler),
     webapp2.Route('/postRegister/', handler=RegisterPostHandler),
-    webapp2.Route('/authenticate/',handler=AuthenticationHandler)
+    #?username= & password=
+    webapp2.Route('/user/authenticate/',handler=AuthenticationHandler)
     ],
     debug=True)
