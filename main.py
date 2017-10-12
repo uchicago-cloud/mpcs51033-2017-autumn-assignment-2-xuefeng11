@@ -4,13 +4,50 @@ import urllib
 import webapp2
 import json
 import logging
+import os
 from uuid import uuid4
 
 from google.appengine.api import memcache
 from google.appengine.ext import ndb
 from google.appengine.api import images
+import cloudstorage
+from google.appengine.api import app_identity
+
+
 
 from models import *
+
+
+def CloudDeleteImage(filename):
+
+    bucket_name = os.environ.get('BUCKET_NAME',
+                                 app_identity.get_default_gcs_bucket_name())
+    bucket = '/' + bucket_name
+    filename = bucket + '/' + filename
+
+    try:
+        cloudstorage.delete(filename)
+    except cloudstorage.NotFoundError:
+        pass
+
+
+def CloudStoreImage(file, filename):
+    bucket_name = os.environ.get('BUCKET_NAME',
+                                 app_identity.get_default_gcs_bucket_name())
+    bucket = '/' + bucket_name
+    filename = bucket + '/'+ filename
+    cloudstorage_file = cloudstorage.open(filename, 'w', content_type='image/png')
+    cloudstorage_file.write(file)
+    cloudstorage_file.close()
+
+
+def CloudReadImage(filename):
+    bucket_name = os.environ.get('BUCKET_NAME',
+                                 app_identity.get_default_gcs_bucket_name())
+    bucket = '/' + bucket_name
+    filename = bucket + '/' + filename
+    cloudstoragefile = cloudstorage.open(filename)
+    return cloudstoragefile.read()
 
 #######################################################################
 class RegisterPostHandler(webapp2.RequestHandler):
@@ -189,9 +226,10 @@ class ImageHandler(webapp2.RequestHandler):
 
         """Write a response of an image (or 'no image') based on a key"""
         photo = ndb.Key(urlsafe=key).get()
+        file_=CloudReadImage(photo.image)
         if photo.image:
             self.response.headers['Content-Type'] = 'image/png'
-            self.response.out.write(photo.image)
+            self.response.out.write(file_)
         else:
             self.response.out.write('No image')
 
@@ -213,6 +251,7 @@ class ImageDeleteHandler(webapp2.RequestHandler):
 
                 if key in photo_keys:
                     key_photo = ndb.Key(urlsafe=key)
+                    CloudDeleteImage(key_photo.image)
                     key_photo.delete()
                     photo_keys.remove(key)
                     result.photos=photo_keys
@@ -249,8 +288,10 @@ class PostHandler(webapp2.RequestHandler):
         user_result = User.exists(username)
 
         if user_result:
+            id_token_photo = str(uuid4())
+            CloudStoreImage(thumbnail, id_token_photo)
             photo_ = Photo(caption=self.request.get('caption'),
-                           image=thumbnail)
+                           image=id_token_photo)
             photo_.put()
             user_result_photos=user_result.photos
             user_result_photos.append(photo_.key.urlsafe())

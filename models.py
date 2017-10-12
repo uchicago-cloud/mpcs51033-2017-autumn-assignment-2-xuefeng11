@@ -4,7 +4,7 @@ class Photo(ndb.Model):
     """Models a user uploaded photo entry"""
 
     #user = ndb.StringProperty()
-    image = ndb.BlobProperty()
+    image = ndb.StringProperty()
     caption = ndb.StringProperty()
     date = ndb.DateTimeProperty(auto_now_add=True)
 
