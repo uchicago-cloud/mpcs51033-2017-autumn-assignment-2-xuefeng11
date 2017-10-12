@@ -149,7 +149,7 @@ class HomeHandler(webapp2.RequestHandler):
 
         result=User.id_tokenUserValidate(username,id_token)
         if result == None:
-            self.response.out.write("username and id_token validation failed")
+            self.response.out.write("username and id_token validation failed,please run again")
             return
 
         self.response.out.write('<html><body>')
