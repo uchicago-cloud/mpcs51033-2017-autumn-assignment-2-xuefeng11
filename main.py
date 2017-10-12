@@ -12,7 +12,7 @@ from google.appengine.ext import ndb
 from google.appengine.api import images
 import cloudstorage
 from google.appengine.api import app_identity
-
+from google.appengine.api import urlfetch
 
 
 from models import *
@@ -48,6 +48,35 @@ def CloudReadImage(filename):
     filename = bucket + '/' + filename
     cloudstoragefile = cloudstorage.open(filename)
     return cloudstoragefile.read()
+
+
+def VisionLabelDetection(bucketname,filename):
+    data = '{"requests": [{"features": [{"type": "LABEL_DETECTION","maxResults": "3"}], "image": {"source": { "gcsImageUri": "gs://%s/%s"}}}]}'%(bucketname,filename)
+    result = urlfetch.fetch(
+        url='https://vision.googleapis.com/v1/images:annotate?key=AIzaSyD_GB8f4NeuKXPRaI5DF5HvjCWv9xlfAVA',
+        headers={'Content-Type': 'application/json'},
+        method=urlfetch.POST,
+        payload=data
+    )
+    str=json.loads(result.content)
+    str2=str.get('responses')
+    str3=str2[0].get('labelAnnotations')
+    labels=[]
+    for temp in str3:
+        labels.append(temp.get('description'))
+
+    return labels
+
+
+'''
+def VisionLabelDetection():
+    data = '{"requests": [{"features": [{"type": "LABEL_DETECTION","maxResults": "3"}], "image": {"source": { "gcsImageUri": "gs://project-2-photo-timeline.appspot.com/cat.jpeg"}}}]}'
+    result = urlfetch.fetch(
+        url='https://vision.googleapis.com/v1/images:annotate?key=AIzaSyD_GB8f4NeuKXPRaI5DF5HvjCWv9xlfAVA', data=data,
+        headers={'Content-Type': 'application/json'}
+    )
+    print result
+'''
 
 #######################################################################
 class RegisterPostHandler(webapp2.RequestHandler):
@@ -181,6 +210,7 @@ class UserHandler(webapp2.RequestHandler):
             dict['caption'] = photo.caption
             dict['user'] = username
             dict['date'] = str(photo.date)
+            dict['labels']=photo.labels
             json_array.append(dict)
         return json.dumps({'results' : json_array})
 
@@ -189,7 +219,10 @@ class UserHandler(webapp2.RequestHandler):
         html = ""
         for photo in photos:
             html += '<div><hr><div><img src="/image/%s/?id_token=%s" width="200" border="1"/></div>' % (photo.key.urlsafe(),id_token)
-            html += '<div><blockquote>Caption: %s<br>User: %s<br>Date:%s</blockquote></div></div>' % (cgi.escape(photo.caption),username,str(photo.date))
+            html += '<div><blockquote>Caption: %s<br>User: %s<br>Date:%s</blockquote></div>' % (cgi.escape(photo.caption),username,str(photo.date))
+            for label in photo.labels:
+                html += '<div><blockquote>label: %s </div>' % (label)
+            html += '</div>'
         return html
 
     @staticmethod
@@ -284,13 +317,17 @@ class PostHandler(webapp2.RequestHandler):
             username = self.request.get('username')
 
         # Be nice to our quotas
-        thumbnail = images.resize(self.request.get('image'), 30,30)
+        thumbnail = images.resize(self.request.get('image'), 100,100)
         user_result = User.exists(username)
+
 
         if user_result:
             id_token_photo = str(uuid4())
             CloudStoreImage(thumbnail, id_token_photo)
+
             photo_ = Photo(caption=self.request.get('caption'),
+                           labels=VisionLabelDetection(os.environ.get('BUCKET_NAME',
+                                 app_identity.get_default_gcs_bucket_name()),id_token_photo),
                            image=id_token_photo)
             photo_.put()
             user_result_photos=user_result.photos

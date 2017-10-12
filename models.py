@@ -6,6 +6,7 @@ class Photo(ndb.Model):
     #user = ndb.StringProperty()
     image = ndb.StringProperty()
     caption = ndb.StringProperty()
+    labels = ndb.StringProperty(repeated=True)
     date = ndb.DateTimeProperty(auto_now_add=True)
 
     #@classmethod
