@@ -276,8 +276,9 @@ class ImageDeleteHandler(webapp2.RequestHandler):
                 photo_keys = result.photos
 
                 if key in photo_keys:
+                    photo = ndb.Key(urlsafe=key).get()
+                    CloudDeleteImage(photo.image)
                     key_photo = ndb.Key(urlsafe=key)
-                    CloudDeleteImage(key_photo.image)
                     key_photo.delete()
                     photo_keys.remove(key)
                     result.photos=photo_keys
