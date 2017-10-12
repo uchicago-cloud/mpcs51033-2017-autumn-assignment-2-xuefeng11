@@ -62,21 +62,14 @@ def VisionLabelDetection(bucketname,filename):
     str2=str.get('responses')
     str3=str2[0].get('labelAnnotations')
     labels=[]
+    if str3 == None:
+        return labels
+
+
     for temp in str3:
         labels.append(temp.get('description'))
 
     return labels
-
-
-'''
-def VisionLabelDetection():
-    data = '{"requests": [{"features": [{"type": "LABEL_DETECTION","maxResults": "3"}], "image": {"source": { "gcsImageUri": "gs://project-2-photo-timeline.appspot.com/cat.jpeg"}}}]}'
-    result = urlfetch.fetch(
-        url='https://vision.googleapis.com/v1/images:annotate?key=AIzaSyD_GB8f4NeuKXPRaI5DF5HvjCWv9xlfAVA', data=data,
-        headers={'Content-Type': 'application/json'}
-    )
-    print result
-'''
 
 #######################################################################
 class RegisterPostHandler(webapp2.RequestHandler):
@@ -317,13 +310,20 @@ class PostHandler(webapp2.RequestHandler):
             username = self.request.get('username')
 
         # Be nice to our quotas
-        thumbnail = images.resize(self.request.get('image'), 100,100)
+        if images == None:
+            self.response.out.write("no image uploaded")
+
         user_result = User.exists(username)
 
 
         if user_result:
             id_token_photo = str(uuid4())
-            CloudStoreImage(thumbnail, id_token_photo)
+            try:
+                thumbnail = images.resize(self.request.get('image'), 100, 100)
+                CloudStoreImage(thumbnail, id_token_photo)
+            except:
+                self.response.out.write("image is not valid")
+                return
 
             photo_ = Photo(caption=self.request.get('caption'),
                            labels=VisionLabelDetection(os.environ.get('BUCKET_NAME',
