@@ -5,6 +5,7 @@ import webapp2
 import json
 import logging
 import os
+import base64
 from uuid import uuid4
 
 from google.appengine.api import memcache
@@ -50,8 +51,15 @@ def CloudReadImage(filename):
     return cloudstoragefile.read()
 
 
-def VisionLabelDetection(bucketname,filename):
-    data = '{"requests": [{"features": [{"type": "LABEL_DETECTION","maxResults": "3"}], "image": {"source": { "gcsImageUri": "gs://%s/%s"}}}]}'%(bucketname,filename)
+def VisionLabelDetection(bucketname,filename,thumbnail):
+    labels=[]
+    if bucketname == 'app_default_bucket':
+        data = '{"requests": [{"features": [{"type": "LABEL_DETECTION","maxResults": "3"}], "image": {"content": "%s"}}]}' % (
+        base64.b64encode(thumbnail))
+    else:
+        data = '{"requests": [{"features": [{"type": "LABEL_DETECTION","maxResults": "3"}], "image": {"source": { "gcsImageUri": "gs://%s/%s"}}}]}' % (
+        bucketname, filename)
+
     result = urlfetch.fetch(
         url='https://vision.googleapis.com/v1/images:annotate?key=AIzaSyD_GB8f4NeuKXPRaI5DF5HvjCWv9xlfAVA',
         headers={'Content-Type': 'application/json'},
@@ -61,10 +69,9 @@ def VisionLabelDetection(bucketname,filename):
     str=json.loads(result.content)
     str2=str.get('responses')
     str3=str2[0].get('labelAnnotations')
-    labels=[]
+
     if str3 == None:
         return labels
-
 
     for temp in str3:
         labels.append(temp.get('description'))
@@ -344,7 +351,7 @@ class PostHandler(webapp2.RequestHandler):
 
             photo_ = Photo(caption=self.request.get('caption'),
                            labels=VisionLabelDetection(os.environ.get('BUCKET_NAME',
-                                 app_identity.get_default_gcs_bucket_name()),id_token_photo),
+                                 app_identity.get_default_gcs_bucket_name()),id_token_photo,thumbnail),
                            image=id_token_photo)
             photo_.put()
             user_result_photos=user_result.photos
