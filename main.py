@@ -128,7 +128,10 @@ class HomeHandler(webapp2.RequestHandler):
         id_token = self.request.get('id_token')
         username = self.request.get('username')
         if id_token == '':
-            self.response.out.write("id_token missing")
+            self.response.content_type='application/json'
+            self.response.status_int=401
+            self.response.status_message=json.dumps("unauthorized access")
+            self.response.out.write("HTTP 401 : Unauthorized access")
             return
 
         result=User.id_tokenUserValidate(username,id_token)
@@ -172,7 +175,10 @@ class UserHandler(webapp2.RequestHandler):
 
         id_token = self.request.get('id_token')
         if id_token == '':
-            self.response.out.write("id_token missing")
+            self.response.content_type='application/json'
+            self.response.status_int=401
+            self.response.status_message=json.dumps("unauthorized access")
+            self.response.out.write("HTTP 401 : Unauthorized access")
             return
 
         result=User.id_tokenUserValidate(username,id_token)
@@ -242,7 +248,10 @@ class ImageHandler(webapp2.RequestHandler):
     def get(self,key):
         id_token = self.request.get('id_token')
         if id_token == '':
-            self.response.out.write("id_token missing")
+            self.response.content_type='application/json'
+            self.response.status_int=401
+            self.response.status_message=json.dumps("unauthorized access")
+            self.response.out.write("HTTP 401 : Unauthorized access")
             return
 
         result = User.getUserbyid_token(id_token)
@@ -265,7 +274,10 @@ class ImageDeleteHandler(webapp2.RequestHandler):
         def get(self, key):
                 id_token = self.request.get('id_token')
                 if id_token == '':
-                    self.response.out.write("id_token missing")
+                    self.response.content_type = 'application/json'
+                    self.response.status_int = 401
+                    self.response.status_message = json.dumps("unauthorized access")
+                    self.response.out.write("HTTP 401 : Unauthorized access")
                     return
 
                 result = User.getUserbyid_token(id_token)
@@ -298,7 +310,10 @@ class PostHandler(webapp2.RequestHandler):
 
         id_token = self.request.get('id_token')
         if id_token == '':
-            self.response.out.write("id_token missing")
+            self.response.content_type='application/json'
+            self.response.status_int=401
+            self.response.status_message=json.dumps("unauthorized access")
+            self.response.out.write("HTTP 401 : Unauthorized access")
             return
 
         result=User.id_tokenUserValidate(username,id_token)
@@ -352,7 +367,10 @@ class LoggingHandler(webapp2.RequestHandler):
 
         id_token = self.request.get('id_token')
         if id_token == '':
-            self.response.out.write("id_token missing")
+            self.response.content_type='application/json'
+            self.response.status_int=401
+            self.response.status_message=json.dumps("unauthorized access")
+            self.response.out.write("HTTP 401 : Unauthorized access")
             return
 
         result=User.getUserbyid_token(id_token)
