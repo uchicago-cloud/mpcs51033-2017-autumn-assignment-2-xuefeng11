@@ -3,9 +3,10 @@ from google.appengine.ext import ndb
 class Photo(ndb.Model):
     """Models a user uploaded photo entry"""
 
-    #user = ndb.StringProperty()
+    #image is used to store the photo id , which link to google cloud storage
     image = ndb.StringProperty()
     caption = ndb.StringProperty()
+    #labels to store label detection from google vision api
     labels = ndb.StringProperty(repeated=True)
     date = ndb.DateTimeProperty(auto_now_add=True)
 
@@ -30,6 +31,7 @@ class User(ndb.Model):
     name = ndb.StringProperty()
     email = ndb.StringProperty()
     unique_id = ndb.StringProperty()
+    #collection linked to each photo id
     photos = ndb.StringProperty(repeated=True)
     username = ndb.StringProperty()
     password = ndb.StringProperty()
