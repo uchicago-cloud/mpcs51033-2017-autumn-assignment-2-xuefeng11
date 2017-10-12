@@ -284,6 +284,7 @@ class ImageDeleteHandler(webapp2.RequestHandler):
                     result.photos=photo_keys
                     result.put()
                     logging.info("photo deleted")
+                    self.response.out.write("photo deleted")
                 else:
                     self.response.out.write("this photo is not in user's photos")
 
