@@ -18,7 +18,7 @@ from google.appengine.api import urlfetch
 
 from models import *
 
-
+# delete image in google cloud storage
 def CloudDeleteImage(filename):
 
     bucket_name = os.environ.get('BUCKET_NAME',
@@ -31,7 +31,7 @@ def CloudDeleteImage(filename):
     except cloudstorage.NotFoundError:
         pass
 
-
+#Store image in google cloud storage
 def CloudStoreImage(file, filename):
     bucket_name = os.environ.get('BUCKET_NAME',
                                  app_identity.get_default_gcs_bucket_name())
@@ -41,7 +41,7 @@ def CloudStoreImage(file, filename):
     cloudstorage_file.write(file)
     cloudstorage_file.close()
 
-
+#Read image from google cloud storage
 def CloudReadImage(filename):
     bucket_name = os.environ.get('BUCKET_NAME',
                                  app_identity.get_default_gcs_bucket_name())
@@ -50,9 +50,10 @@ def CloudReadImage(filename):
     cloudstoragefile = cloudstorage.open(filename)
     return cloudstoragefile.read()
 
-
+#get label by detecting image through google vision api
 def VisionLabelDetection(bucketname,filename,thumbnail):
     labels=[]
+    #if run local server, sent image, if on google cloud sent share link to api
     if bucketname == 'app_default_bucket':
         data = '{"requests": [{"features": [{"type": "LABEL_DETECTION","maxResults": "3"}], "image": {"content": "%s"}}]}' % (
         base64.b64encode(thumbnail))
@@ -66,6 +67,8 @@ def VisionLabelDetection(bucketname,filename,thumbnail):
         method=urlfetch.POST,
         payload=data
     )
+
+    #extract all the labels
     str=json.loads(result.content)
     str2=str.get('responses')
     str3=str2[0].get('labelAnnotations')
@@ -79,6 +82,7 @@ def VisionLabelDetection(bucketname,filename,thumbnail):
     return labels
 
 #######################################################################
+# add user into ndb
 class RegisterPostHandler(webapp2.RequestHandler):
     def post(self):
 
@@ -108,7 +112,7 @@ class RegisterPostHandler(webapp2.RequestHandler):
             logging.info("new user added")
             self.redirect('/?username=%s&id_token=%s'%(username_,id_token_))
 
-
+#register new user
 class RegisterHandler(webapp2.RequestHandler):
         def get(self):
             self.response.out.write('<html><body>')
@@ -127,6 +131,8 @@ class RegisterHandler(webapp2.RequestHandler):
 
 ################################################################################
 """The home page of the app"""
+
+#home page to add image to user
 class HomeHandler(webapp2.RequestHandler):
 
     """Show the webform when the user is on the home page"""
@@ -174,7 +180,7 @@ class HomeHandler(webapp2.RequestHandler):
 
 
 ################################################################################
-"""Handle activities associated with a given user"""
+#return json format or web format of user datas after pass validation
 class UserHandler(webapp2.RequestHandler):
 
     """Print json or html version of the users photos"""
@@ -275,7 +281,7 @@ class ImageHandler(webapp2.RequestHandler):
         else:
             self.response.out.write('No image')
 
-
+#delete image base on the key, delete ndb string and data on cloud storage
 class ImageDeleteHandler(webapp2.RequestHandler):
 
         def get(self, key):
@@ -312,6 +318,7 @@ class ImageDeleteHandler(webapp2.RequestHandler):
 
 
 ################################################################################
+#write photo id to the ndb and photo data to the cloud storage
 class PostHandler(webapp2.RequestHandler):
     def post(self,username):
 
@@ -339,7 +346,6 @@ class PostHandler(webapp2.RequestHandler):
 
         user_result = User.exists(username)
 
-
         if user_result:
             id_token_photo = str(uuid4())
             try:
@@ -348,7 +354,7 @@ class PostHandler(webapp2.RequestHandler):
             except:
                 self.response.out.write("image is not valid")
                 return
-
+            #create photo by labels caption and photo_id
             photo_ = Photo(caption=self.request.get('caption'),
                            labels=VisionLabelDetection(os.environ.get('BUCKET_NAME',
                                  app_identity.get_default_gcs_bucket_name()),id_token_photo,thumbnail),
@@ -367,6 +373,7 @@ class PostHandler(webapp2.RequestHandler):
         key = username + "_photos"
         memcache.delete(key)
 
+#logging
 class LoggingHandler(webapp2.RequestHandler):
     """Demonstrate the different levels of logging"""
 
@@ -398,7 +405,7 @@ class LoggingHandler(webapp2.RequestHandler):
 
         self.response.out.write('Logging example.')
 
-
+#authenticate the user to retrieve the token_id before process other steps
 class AuthenticationHandler(webapp2.RequestHandler):
     def get(self):
         username_ = self.request.get('username')
@@ -410,8 +417,6 @@ class AuthenticationHandler(webapp2.RequestHandler):
             self.redirect('/?username=%s&id_token=%s' % (username_,result.id_token))
         else:
             self.response.out.write("username and password is not correct")
-
-
 
 
 ################################################################################
