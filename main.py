@@ -7,7 +7,7 @@ import logging
 import os
 import base64
 from uuid import uuid4
-
+import time
 from google.appengine.api import memcache
 from google.appengine.ext import ndb
 from google.appengine.api import images
@@ -146,7 +146,7 @@ class HomeHandler(webapp2.RequestHandler):
             self.response.status_message=json.dumps("unauthorized access")
             self.response.out.write("HTTP 401 : Unauthorized access")
             return
-
+        time.sleep(1)
         result=User.id_tokenUserValidate(username,id_token)
         if result == None:
             self.response.out.write("username and id_token validation failed,please run again")
@@ -360,11 +360,10 @@ class PostHandler(webapp2.RequestHandler):
                                  app_identity.get_default_gcs_bucket_name()),id_token_photo,thumbnail),
                            image=id_token_photo)
             photo_.put()
-            user_result_photos=user_result.photos
-            user_result_photos.append(photo_.key.urlsafe())
-            user_result.photos=user_result_photos
+            user_result.photos.append(photo_.key.urlsafe())
             user_result.put()
             logging.info("new photo added to %s" % username)
+            time.sleep(1)
             self.redirect('/user/%s/json/?id_token=%s' % (username,result.id_token))
         else:
             self.response.out.write("no user exist")
