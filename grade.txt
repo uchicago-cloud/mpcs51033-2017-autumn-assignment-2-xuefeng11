@@ -1,0 +1,52 @@
+Assignment 2
+============
+
+[x] Add a `User` model
+[x] Change image storage strategy
+[x] Add authentication
+  [x] Add authentication API
+  [x] Update API calls to pass token
+
+[x] Add delete photo API
+[x] Photo labeling with Google Vision
+
+Nice work on this assignment.  Everything was very clearly implemented.
+
+Thanks for the creating a signup form and printing out the id_token after the
+signup sheet, this made it much easier to test out.
+
+The only suggestion I would make would have been to create an image handling
+class to handle all of your image related task (eg. delete, vision, upload,
+etc.).  Everything worked great, but if you refactor it out you could easily
+reuse the code in other projects.
+
+This isn't related to your implementation, but I personally found the vision API
+to be terrible.  I uploaded a dog and it returned "mammal".  I tested the same
+image on iOS and it returned the actual breed of the dog.  Interesting that
+people tend to think that Google is better at these kinds of things.
+
+
+Grade: 10/10
+
+
+
+~~~
+My Testing Notes (Ignore)
+-------------------------
+
+id_token=2fca669f-b4bb-4f80-8959-979e0a032b75
+ https://project-2-photo-timeline.appspot.com/user/xuefeng111/web/?id_token=2fca669f-b4bb-4f80-8959-979e0a032b75
+
+ https://project-2-photo-timeline.appspot.com/logging/?id_token=2fca669f-b4bb-4f80-8959-979e0a032b75
+
+
+> curl http://localhost:8080/user/authenticate/?username=a&password=b
+{"results": [{"username": "a", "id_token": "aghkZXZ-Tm9uZXILCxIEVXNlciIBYQw"}]}
+
+> curl -X GET http://localhost:8080/user/a/json/?id_token=aghkZXZ-Tm9uZXILCxIEVXNlciIBYQw
+{"results": [{"date": "2017-10-17 16:25:37.187240", "caption": "caption", "image_url": "image/aghkZ
+
+XZ-Tm9uZXIdCxIEVXNlciIBYQwLEgVQaG90bxiAgICAgMCvCgw/?id_token=aghkZXZ-Tm9uZXILCxIEVXNlciIBYQw", "use
+r": "a"}]}
+
+curl -v -X POST -H "Content-Type: multipart/form-data" -F caption=caption -F "image=@image.jpg" http://localhost:8080/post/a/?id_token=aghkZXZ-Tm9uZXILCxIEVXNlciIBYQw
